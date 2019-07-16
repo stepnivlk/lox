@@ -16,7 +16,7 @@ fn main() {
         process::exit(64);
     }
 
-    let lox = Lox::new();
+    let mut lox = Lox::new();
 
     let res = if args.len() == 1 {
         lox.run_file(&args[0])

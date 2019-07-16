@@ -12,7 +12,7 @@ impl Lox {
         Self { had_error: false }
     }
     
-    pub fn run_file(&self, path: &String) -> Result<(), ()> {
+    pub fn run_file(&mut self, path: &String) -> Result<(), ()> {
         let program: String = fs::read_to_string(path).unwrap().parse().unwrap();
         self.run(program);
 
@@ -23,7 +23,7 @@ impl Lox {
         }
     }
 
-    pub fn run_prompt(&self) -> Result<(), ()> {
+    pub fn run_prompt(&mut self) -> Result<(), ()> {
         loop {
             let mut line = String::new();
 
@@ -47,7 +47,7 @@ impl Lox {
         self.report(line, "".to_string(), message);
     }
 
-    fn run(&self, source: String) {
+    fn run(&mut self, source: String) {
         let mut scanner = Scanner::new(self, source);
 
         let tokens = scanner.scan_tokens();

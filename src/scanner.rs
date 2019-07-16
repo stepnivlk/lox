@@ -1,5 +1,5 @@
 use crate::lox::Lox;
-use crate::token::Token;
+use crate::token::{Token, Literal};
 use crate::token_form::TokenForm;
 
 pub struct Scanner<'a> {
@@ -13,12 +13,12 @@ pub struct Scanner<'a> {
 
 impl<'a> Scanner<'a> {
     pub fn new(lox: &'a mut Lox, source: String) -> Self {
-        Scanner {
+        Self {
             source, start: 0, current: 0, line: 1, tokens: vec![], lox
         }
     }
 
-    pub fn scan_tokens(&mut self) -> Vec<Token> {
+    pub fn scan_tokens(&mut self) -> &Vec<Token> {
         while !self.is_at_the_end() {
             self.start = self.current;
             self.scan_token();
@@ -26,58 +26,152 @@ impl<'a> Scanner<'a> {
 
         self.tokens.push(Token::eof(self.line));
 
-        vec![]
+        &self.tokens
     }
 
     fn scan_token(&mut self) {
         let ch = self.advance();
 
         match ch {
-            Some('(') => self.add_token(TokenForm::LeftParen),
-            Some(')') => self.add_token(TokenForm::RightParen),
-            Some('{') => self.add_token(TokenForm::LeftBrace),
-            Some('}') => self.add_token(TokenForm::RightBrace),
-            Some(',') => self.add_token(TokenForm::Comma),
-            Some('.') => self.add_token(TokenForm::Dot),
-            Some('-') => self.add_token(TokenForm::Minus),
-            Some('+') => self.add_token(TokenForm::Plus),
-            Some(';') => self.add_token(TokenForm::Semicolon),
-            Some('*') => self.add_token(TokenForm::Star),
-            Some('!') => self.add_token(
-                if self.is_match('=') {
+            Some('(') => self.add_token(TokenForm::LeftParen, None),
+            Some(')') => self.add_token(TokenForm::RightParen, None),
+            Some('{') => self.add_token(TokenForm::LeftBrace, None),
+            Some('}') => self.add_token(TokenForm::RightBrace, None),
+            Some(',') => self.add_token(TokenForm::Comma, None),
+            Some('.') => self.add_token(TokenForm::Dot, None),
+            Some('-') => self.add_token(TokenForm::Minus, None),
+            Some('+') => self.add_token(TokenForm::Plus, None),
+            Some(';') => self.add_token(TokenForm::Semicolon, None),
+            Some('*') => self.add_token(TokenForm::Star, None),
+            Some('!') => {
+                let token = if self.matches('=') {
                     TokenForm::BangEqual
                 } else {
                     TokenForm::Bang
-                }
-            ),
-            Some('=') => self.add_token(
-                if self.is_match('=') {
+                };
+
+                self.add_token(token, None);
+            },
+            Some('=') => {
+                let token = if self.matches('=') {
                     TokenForm::EqualEqual
                 } else {
                     TokenForm::Equal
-                }
-            ),
-            Some('<') => self.add_token(
-                if self.is_match('=') {
+                };
+
+                self.add_token(token, None);
+            },
+            Some('<') => {
+                let token = if self.matches('=') {
                     TokenForm::LessEqual
                 } else {
                     TokenForm::Less
-                }
-            ),
-            Some('>') => self.add_token(
-                if self.is_match('=') {
+                };
+
+                self.add_token(token, None);
+            },
+            Some('>') => {
+                let token = if self.matches('=') {
                     TokenForm::GreaterEqual
                 } else {
                     TokenForm::Greater
+                };
+
+                self.add_token(token, None);
+            },
+            Some('/') => {
+                if self.matches('/') {
+                    while self.peek() != '\n' && !self.is_at_the_end() {
+                        self.advance();
+                    }
+                } else {
+                    self.add_token(TokenForm::Slash, None)
                 }
-            ),
+            },
+
+            Some(' ') => (),
+            Some('\r') => (),
+            Some('\t') => (),
+
+            Some('\n') => self.line += 1,
+
+            Some('"') => self.string(),
+
+            Some(c) if self.is_digit(c) => self.number(),
 
             Some(_) => self.lox.error(self.line, "Unexpected character".to_string()),
             None => (),
         }
     }
 
-    fn is_match(&self, expected: char) -> bool {
+    fn is_digit(&self, c: char) -> bool {
+        c >= '0' && c <= '9'
+    }
+
+    fn number(&mut self) {
+        while self.is_digit(self.peek()) {
+            self.advance();
+        }
+
+        if self.peek() == '.' && self.is_digit(self.peek_next()) {
+            self.advance();
+
+            while self.is_digit(self.peek()) {
+                self.advance();
+            }
+        }
+
+        let value = &self.source[self.start..self.current];
+        let value = value.parse::<f64>().unwrap();
+
+        self.add_token(TokenForm::Number, Some(Literal::Number(value)));
+    }
+
+    fn peek_next(&self) -> char {
+        if self.current + 1 >= self.source.len() {
+            return '\0'
+        }
+
+        match self.source.chars().nth(self.current + 1) {
+            Some(ch) => ch,
+            None => '\n',
+        }
+    }
+
+    fn string(&mut self) {
+        while self.peek() != '"' && !self.is_at_the_end() {
+            if self.peek() == '\n' {
+                self.line += 1;
+            }
+
+            self.advance();
+        }
+
+        if self.is_at_the_end() {
+            self.lox.error(self.line, "Unterminated string".to_string());
+            return
+        }
+
+        self.advance();
+
+        let value = &self.source[self.start + 1..self.current - 1];
+        let value = Some(Literal::Str(value.to_string()));
+
+        self.add_token(TokenForm::String, value);
+    }
+
+    fn peek(&self) -> char {
+        if self.is_at_the_end() {
+            return '\0'
+        }
+
+        match self.source.chars().nth(self.current) {
+            Some(ch) => ch,
+            None => '\0'
+        }
+    }
+
+    fn matches(&mut self, expected: char) -> bool {
         if self.is_at_the_end() {
             return false
         }
@@ -85,7 +179,7 @@ impl<'a> Scanner<'a> {
         match self.source.chars().nth(self.current) {
             Some(ch) => {
                 if ch == expected {
-                    self.current = self.current + 1;
+                    self.current += 1;
                     true
                 } else {
                     false
@@ -95,13 +189,13 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn add_token(&mut self, form: TokenForm) {
+    fn add_token(&mut self, form: TokenForm, literal: Option<Literal>) {
         let text = &self.source[self.start..self.current];
 
         let token = Token {
             form,
             lexeme: text.to_string(),
-            literal: "".to_string(),
+            literal,
             line: self.line,
         };
 
@@ -110,7 +204,7 @@ impl<'a> Scanner<'a> {
 
     // TODO
     fn advance(&mut self) -> Option<char> {
-        self.current = self.current + 1;
+        self.current += 1;
         self.source.chars().nth(self.current - 1)
     }
 
