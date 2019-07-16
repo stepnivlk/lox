@@ -99,6 +99,8 @@ impl<'a> Scanner<'a> {
 
             Some(c) if self.is_digit(c) => self.number(),
 
+            Some(c) if self.is_alpha(c) => self.identifier(),
+
             Some(_) => self.lox.error(self.line, "Unexpected character".to_string()),
             None => (),
         }
@@ -106,6 +108,42 @@ impl<'a> Scanner<'a> {
 
     fn is_digit(&self, c: char) -> bool {
         c >= '0' && c <= '9'
+    }
+
+    fn is_alpha(&self, c: char) -> bool {
+        (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'
+    }
+
+    fn is_alphanumeric(&self, c: char) -> bool {
+        self.is_digit(c) || self.is_alpha(c)
+    }
+
+    fn identifier(&mut self) {
+        while self.is_alphanumeric(self.peek()) {
+            self.advance();
+        }
+
+        let form =  match &self.source[self.start..self.current] {
+            "and" => TokenForm::And,
+            "class" => TokenForm::Class,
+            "else" => TokenForm::Else,
+            "false" => TokenForm::False,
+            "for" => TokenForm::For,
+            "fun" => TokenForm::Fun,
+            "if" => TokenForm::If,
+            "nil" => TokenForm::Nil,
+            "or" => TokenForm::Or,
+            "print" => TokenForm::Print,
+            "return" => TokenForm::Return,
+            "super" => TokenForm::Super,
+            "this" => TokenForm::This,
+            "true" => TokenForm::True,
+            "var" => TokenForm::Var,
+            "while" => TokenForm::While,
+            _ => TokenForm::Identifier,
+        };
+
+        self.add_token(form, None);
     }
 
     fn number(&mut self) {
@@ -155,9 +193,9 @@ impl<'a> Scanner<'a> {
         self.advance();
 
         let value = &self.source[self.start + 1..self.current - 1];
-        let value = Some(Literal::Str(value.to_string()));
+        let value = Literal::Str(value.to_string());
 
-        self.add_token(TokenForm::String, value);
+        self.add_token(TokenForm::String, Some(value));
     }
 
     fn peek(&self) -> char {
