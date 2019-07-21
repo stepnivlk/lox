@@ -11,6 +11,7 @@ pub struct Scanner<'a> {
     lox: &'a mut Lox,
 }
 
+// TODO: Extract logic, remove Lox dependency & better scanning through source.
 impl<'a> Scanner<'a> {
     pub fn new(lox: &'a mut Lox, source: String) -> Self {
         Self {
@@ -240,7 +241,6 @@ impl<'a> Scanner<'a> {
         self.tokens.push(token);
     }
 
-    // TODO
     fn advance(&mut self) -> Option<char> {
         self.current += 1;
         self.source.chars().nth(self.current - 1)

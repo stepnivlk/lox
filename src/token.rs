@@ -7,6 +7,15 @@ pub enum Literal {
     Number(f64),
 }
 
+impl fmt::Display for Literal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Literal::Str(string) => write!(f, "{}", string),
+            Literal::Number(num) => write!(f, "{}", num),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Token {
     pub form: TokenForm,
